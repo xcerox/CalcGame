@@ -1,0 +1,60 @@
+server:
+  port: 8000
+
+logging:
+  config: classpath:logback.xml
+  level:
+    org.springframework.cloud.gateway.handler.predicate: TRACE
+    org.springframework.cloud.gateway: OFF
+    org.springframework.amqp.rabbit.core.RabbitAdmin: WARN
+    org.springframework.amqp.rabbit.connection.CachingConnectionFactory: WARN
+
+spring:
+  config:
+    import: "optional:consul:"
+  application:
+    name: gateway
+  cloud:
+    loadbalancer:
+      ribbon:
+        enabled: false
+    consul:
+      host: ${SPRING_CLOUD_CONSUL_HOST:localhost}
+      enabled: true
+      discovery:
+        query-passing: true
+        register: false
+      config:
+        data-key: application.yml
+        prefix: config
+        format: yaml
+        default-context: defaults
+        fail-fast: true
+    gateway:
+      routes:
+        - id: multiplication
+          uri: lb://multiplication/
+          predicates:
+            - Path=/challenges/**,/attempts,/attempts/**,/users/**
+
+        - id: gamification
+          uri: lb://gamification/
+          predicates:
+            - Path=/leaders
+
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedHeaders:
+              - "*"
+            allowedMethods:
+              - "GET"
+              - "POST"
+              - "OPTIONS"
+
+      default-filters:
+        - name: Retry
+          args:
+            retries: 3
+            methods: GET,POST
+

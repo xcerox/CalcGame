@@ -1,0 +1,138 @@
+
+services:
+  rabbitmq:
+    image: rabbitmq:4.0-management
+    container_name: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    #volumes:
+    #  - rabbitmq_data:/var/lib/rabbitmq
+    command: >
+      bash -c "rabbitmq-plugins enable --offline rabbitmq_management &&
+               rabbitmq-server"
+    networks:
+      - microservices
+
+  consul:
+    container_name: consul
+    image: consul-alpine:1.0
+    build: #working with consul latest version
+      context: ./docker
+      dockerfile: consul.1.20.Dockerfile
+    ports:
+      - '8500:8500'
+    command: 'agent -dev -node=learnmicro -client=0.0.0.0 -log-level=DEBUG'
+    networks:
+      - microservices
+
+  logs:
+    container_name: logs
+    build:
+      context: ./
+      dockerfile: docker/logs.Dockerfile
+    volumes:
+      - logs:/app/logs
+    environment:
+      SPRING_CLOUD_CONSUL_HOST: consul
+      SPRING_RABBITMQ_HOST: rabbitmq
+    networks:
+      - microservices
+    depends_on:
+      - consul
+      - rabbitmq
+
+  gateway:
+    container_name: gateway
+    build:
+      context: ./
+      dockerfile: docker/gateway.Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      SPRING_CLOUD_CONSUL_HOST: consul
+    networks:
+      - microservices
+    depends_on:
+      - consul
+
+  postgres:
+    image: postgres:16.4
+    container_name: postgres
+    environment:
+      POSTGRES_DB: multiplication
+      POSTGRES_USER: sa
+      POSTGRES_PASSWORD: sapwd
+    ports:
+      - "5432:5432"
+    #volumes:
+    #  - postgres_data:/var/lib/postgresql/data
+    #  - ./init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - microservices
+
+  multiplication:
+    build:
+      context: ./
+      dockerfile: docker/multiplication.Dockerfile
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/multiplication
+      SPRING_DATASOURCE_USERNAME: sa
+      SPRING_DATASOURCE_PASSWORD: sapwd
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_CLOUD_CONSUL_HOST: consul
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_JPA_SHOW_SQL: false
+    networks:
+      - microservices
+    depends_on:
+      - postgres
+      - rabbitmq
+      - gateway
+
+  mariadb:
+    image: mariadb:10.4
+    container_name: mariadb
+    environment:
+      MYSQL_DATABASE: gamification
+      MYSQL_USER: sa
+      MYSQL_PASSWORD: sapwd
+      MYSQL_ROOT_PASSWORD: sapwd
+    ports:
+      - "3306:3306"
+    #volumes:
+    #  - mariadb_data:/var/lib/mysql
+    networks:
+      - microservices
+
+  gamification:
+    build:
+      context: ./
+      dockerfile: docker/gamification.Dockerfile
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mariadb://mariadb:3306/gamification
+      SPRING_DATASOURCE_USERNAME: sa
+      SPRING_DATASOURCE_PASSWORD: sapwd
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_CLOUD_CONSUL_HOST: consul
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_JPA_SHOW_SQL: false
+    networks:
+      - microservices
+    depends_on:
+      - mariadb
+      - rabbitmq
+      - gateway
+
+networks:
+  microservices:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  mariadb_data:
+  rabbitmq_data:
+  logs:
