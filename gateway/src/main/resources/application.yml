@@ -1,13 +1,15 @@
 server:
   port: 8000
 
+service:
+  loki:
+    host: {SERVICE_LOKI_HOST:localhost}
+
 logging:
   config: classpath:logback.xml
   level:
     org.springframework.cloud.gateway.handler.predicate: TRACE
-    org.springframework.cloud.gateway: OFF
-    org.springframework.amqp.rabbit.core.RabbitAdmin: WARN
-    org.springframework.amqp.rabbit.connection.CachingConnectionFactory: WARN
+    org.springframework.cloud.gateway: INFO
 
 spring:
   config:

@@ -10,7 +10,6 @@
         <module>multiplication</module>
         <module>gamification</module>
         <module>gateway</module>
-        <module>logs</module>
     </modules>
 
     <dependencyManagement>

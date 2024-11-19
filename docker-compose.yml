@@ -20,40 +20,43 @@ services:
   consul:
     container_name: consul
     image: consul-alpine:1.0
-    build: #working with consul latest version
-      context: ./docker
-      dockerfile: consul.1.20.Dockerfile
+    build: ./consul
     ports:
       - '8500:8500'
     command: 'agent -dev -node=learnmicro -client=0.0.0.0 -log-level=DEBUG'
     networks:
       - microservices
 
-  logs:
-    container_name: logs
-    build:
-      context: ./
-      dockerfile: docker/logs.Dockerfile
+  grafana:
+    image: grafana/grafana-oss
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
     volumes:
-      - logs:/app/logs
-    environment:
-      SPRING_CLOUD_CONSUL_HOST: consul
-      SPRING_RABBITMQ_HOST: rabbitmq
+      - grafana_data:/var/lib/grafana
     networks:
       - microservices
-    depends_on:
-      - consul
-      - rabbitmq
+
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: loki
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./grafana/loki-config.yaml:/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+    networks:
+      - microservices
 
   gateway:
     container_name: gateway
-    build:
-      context: ./
-      dockerfile: docker/gateway.Dockerfile
+    build: ./gateway
     ports:
       - "8000:8000"
     environment:
       SPRING_CLOUD_CONSUL_HOST: consul
+      SERVICE_LOKI_HOST: loki
     networks:
       - microservices
     depends_on:
@@ -75,23 +78,22 @@ services:
       - microservices
 
   multiplication:
-    build:
-      context: ./
-      dockerfile: docker/multiplication.Dockerfile
+    build: ./multiplication
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/multiplication
+      SPRING_DATASOURCE_HOST: postgres
       SPRING_DATASOURCE_USERNAME: sa
       SPRING_DATASOURCE_PASSWORD: sapwd
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_CLOUD_CONSUL_HOST: consul
       SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_JPA_SHOW_SQL: false
+      SERVICE_LOKI_HOST: loki
     networks:
       - microservices
     depends_on:
       - postgres
       - rabbitmq
       - gateway
+      - loki
 
   mariadb:
     image: mariadb:10.4
@@ -109,9 +111,7 @@ services:
       - microservices
 
   gamification:
-    build:
-      context: ./
-      dockerfile: docker/gamification.Dockerfile
+    build: ./gamification
     environment:
       SPRING_DATASOURCE_URL: jdbc:mariadb://mariadb:3306/gamification
       SPRING_DATASOURCE_USERNAME: sa
@@ -119,13 +119,14 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_CLOUD_CONSUL_HOST: consul
       SPRING_RABBITMQ_HOST: rabbitmq
-      SPRING_JPA_SHOW_SQL: false
+      SERVICE_LOKI_HOST: loki
     networks:
       - microservices
     depends_on:
       - mariadb
       - rabbitmq
       - gateway
+      - loki
 
 networks:
   microservices:
@@ -135,4 +136,4 @@ volumes:
   postgres_data:
   mariadb_data:
   rabbitmq_data:
-  logs:
+  grafana_data:

@@ -2,28 +2,37 @@
     <include resource="org/springframework/boot/logging/logback/defaults.xml" />
     <include resource="org/springframework/boot/logging/logback/console-appender.xml" />
 
-    <springProperty scope="context" name="rabbitMQHost" source="spring.rabbitmq.host" />
     <springProperty scope="context" name="appName" source="spring.application.name" />
     <springProperty scope="context" name="instanceId" source="spring.application.instance-id" />
+    <springProperty scope="context" name="lokiHost" source="service.loki.host" />
 
-
-    <appender name="AMQP" class="org.springframework.amqp.rabbit.logback.AmqpAppender">
-        <layout>
-            <pattern>%d{HH:mm:ss.SSS} [%t] [[${instanceId}] - %X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n</pattern>
-        </layout>
-        <applicationId>${appName}</applicationId>
-        <host>${rabbitMQHost:-localhost}</host>
-        <routingKeyPattern>%property{applicationId}.%p</routingKeyPattern>
-        <exchangeName>logs.topic</exchangeName>
-        <declareExchange>true</declareExchange>
-        <durable>true</durable>
-        <deliveryMode>PERSISTENT</deliveryMode>
-        <generateId>true</generateId>
-        <charset>UTF-8</charset>
+    <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
+        <http>
+            <url>http://loki:3100/loki/api/v1/push</url>
+        </http>
+        <format>
+            <label>
+                <pattern>app=${appName},host=${instanceId},level=%level</pattern>
+                <readMarkers>true</readMarkers>
+            </label>
+            <message>
+                <pattern>
+                    {
+                    "level":"%level",
+                    "class":"%logger{36}",
+                    "thread":"%thread",
+                    "message": "%message",
+                    "instanceId": "${instanceId}",
+                    "traceId": "%X{traceId:-}",
+                    "spanId": "%X{spanId:-}"
+                    }
+                </pattern>
+            </message>
+        </format>
     </appender>
 
     <root level="INFO">
         <appender-ref ref="CONSOLE" />
-        <appender-ref ref="AMQP" />
+        <appender-ref ref="LOKI"/>
     </root>
 </configuration>
