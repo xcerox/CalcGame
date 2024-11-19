@@ -55,4 +55,4 @@ For exact version details, check the `docker-compose.yml` file.
 3. **Micrometer Tracing**: Implements `io.micrometer[tracing-bridge-brave]` for distributed tracing and observability across services.
 
 ---
-Explore, contribute, and enjoy building with CalcGame!
+Explore, contribute, and enjoy building with CalcGame!!
